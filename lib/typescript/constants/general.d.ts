@@ -1,0 +1,11 @@
+export declare const HEIGHT = 40;
+export declare const BAR_WIDTH_FIXED = 3;
+export declare const GAP_FIXED = 2;
+export declare const VISIBLE_BARS = 40;
+export declare const GAP = 2;
+export declare const TARGET = 40;
+export declare const BAR_WIDTH = 2;
+export declare const MAX_BARS = 80;
+export declare const NOISE_THRESHOLD = 0.03;
+export declare const MIN_HEIGHT = 2;
+//# sourceMappingURL=general.d.ts.map
