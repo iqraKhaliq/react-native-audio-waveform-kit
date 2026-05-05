@@ -1,0 +1,41 @@
+# Example app
+example/
+
+# Native platform folders
+android/
+ios/
+
+# Testing
+__tests__/
+coverage/
+jest.config.js
+
+# Configuration files
+metro.config.js
+babel.config.js
+.eslintrc.js
+.prettierrc.js
+tsconfig.json
+*.config.js
+*.config.ts
+
+# Git and GitHub
+.git/
+.gitignore
+.github/
+.gitattributes
+
+# Node modules (users will install their own)
+node_modules/
+
+# Build artifacts from local tests
+*.tgz
+*.log
+
+# IDE folders
+.vscode/
+.idea/
+*.swp
+
+# Documentation source (if any)
+docs/

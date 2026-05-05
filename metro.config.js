@@ -6,6 +6,17 @@ const { getDefaultConfig, mergeConfig } = require('@react-native/metro-config');
  *
  * @type {import('@react-native/metro-config').MetroConfig}
  */
-const config = {};
+const path = require('path');
 
-module.exports = mergeConfig(getDefaultConfig(__dirname), config);
+const defaultConfig = getDefaultConfig(__dirname);
+
+const customConfig = {
+  watchFolders: [path.resolve(__dirname, '../src')],
+  resolver: {
+    extraNodeModules: {
+      'react-native-audio-waveform-kit': path.resolve(__dirname, '../src'),
+    },
+  },
+};
+
+module.exports = mergeConfig(defaultConfig, customConfig);

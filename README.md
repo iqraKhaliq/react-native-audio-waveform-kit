@@ -1,97 +1,220 @@
-This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+# 🎙️ React Native Audio Waveform Kit
 
-# Getting Started
+WhatsApp‑style voice recording and playback waveforms for React Native.
 
-> **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
+[![npm version](https://badge.fury.io/js/react-native-audio-waveform-kit.svg)](https://www.npmjs.com/package/react-native-audio-waveform-kit)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-## Step 1: Start Metro
+## Features
 
-First, you will need to run **Metro**, the JavaScript build tool for React Native.
+- 🎤 **Hold‑to‑record** with live waveform visualisation
+- ▶️ **Playback** with scrubbing, speed control (1x/1.5x/2x)
+- 🎨 **Themable** – sent/received bubble colours, progress fill, scrubber dot
+- 📊 **Waveform** – constant 40 bars with peak‑preserving downsampling
+- 🧹 **No auto‑replay** – prevents accidental replay of short audio
+- 🖼️ **Customisable icons** – use your own play/pause/record buttons
+- 🔧 **Built with TypeScript** – type definitions included
 
-To start the Metro dev server, run the following command from the root of your React Native project:
+## Installation
 
-```sh
-# Using npm
-npm start
-
-# OR using Yarn
-yarn start
+```bash
+npm install react-native-audio-waveform-kit
 ```
 
-## Step 2: Build and run your app
+**Peer dependencies** (must be installed in your app):
 
-With Metro running, open a new terminal window/pane from the root of your React Native project, and use one of the following commands to build and run your Android or iOS app:
-
-### Android
-
-```sh
-# Using npm
-npm run android
-
-# OR using Yarn
-yarn android
+```bash
+npm install react-native-audio-api react-native-sound react-native-gesture-handler react-native-svg
 ```
 
-### iOS
+### iOS (extra step)
 
-For iOS, remember to install CocoaPods dependencies (this only needs to be run on first clone or after updating native deps).
-
-The first time you create a new project, run the Ruby bundler to install CocoaPods itself:
-
-```sh
-bundle install
+```bash
+cd ios && pod install && cd ..
 ```
 
-Then, and every time you update your native dependencies, run:
+### Android permissions
 
-```sh
-bundle exec pod install
+Add the following line to `android/app/src/main/AndroidManifest.xml` inside the `<manifest>` tag:
+
+```xml
+<uses-permission android:name="android.permission.RECORD_AUDIO" />
 ```
 
-For more information, please visit [CocoaPods Getting Started guide](https://guides.cocoapods.org/using/getting-started.html).
+### iOS microphone usage description
 
-```sh
-# Using npm
-npm run ios
+Add this to `ios/YourApp/Info.plist` inside the `<dict>` tag:
 
-# OR using Yarn
-yarn ios
+```xml
+<key>NSMicrophoneUsageDescription</key>
+<string>We need microphone access to record voice messages</string>
 ```
 
-If everything is set up correctly, you should see your new app running in the Android Emulator, iOS Simulator, or your connected device.
+## Quick Start Example
 
-This is one way to run your app — you can also build it directly from Android Studio or Xcode.
+```tsx
+import React, { useRef, useState } from 'react';
+import { View, StyleSheet } from 'react-native';
+import {
+  RecordingWaveform,
+  PlayerWaveform,
+  PlayerRef,
+} from 'react-native-audio-waveform-kit';
 
-## Step 3: Modify your app
+export default function App() {
+  const playerRef = useRef<PlayerRef>(null);
+  const [uri, setUri] = useState<string | null>(null);
+  const [bars, setBars] = useState<number[]>([]);
 
-Now that you have successfully run the app, let's make changes!
+  const handleStop = (output: any) => {
+    setUri(output.uri);
+    setBars(output.amplitudes);
+  };
 
-Open `App.tsx` in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
+  return (
+    <View style={styles.container}>
+      <RecordingWaveform onStop={handleStop} />
+      {uri && <PlayerWaveform ref={playerRef} uri={uri} bars={bars} sent />}
+    </View>
+  );
+}
 
-When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
+const styles = StyleSheet.create({
+  container: { flex: 1, justifyContent: 'center', padding: 20 },
+});
+```
 
-- **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
-- **iOS**: Press <kbd>R</kbd> in iOS Simulator.
+## Component APIs
 
-## Congratulations! :tada:
+### `RecordingWaveform`
 
-You've successfully run and modified your React Native App. :partying_face:
+| Prop                   | Type                                                  | Default   | Description                                                                 |
+| ---------------------- | ----------------------------------------------------- | --------- | --------------------------------------------------------------------------- |
+| `onStop`               | `(output: any) => void`                               | –         | Called when recording stops. Returns `{ uri, duration, size, amplitudes }`. |
+| `style`                | `ViewStyle`                                           | –         | Style for the outer container                                               |
+| `waveformStyle`        | `ViewStyle`                                           | –         | Style for the waveform SVG wrapper                                          |
+| `buttonStyle`          | `ViewStyle`                                           | –         | Style for the record button                                                 |
+| `iconStyle`            | `ImageStyle`                                          | –         | Style for the icon image                                                    |
+| `recordingIconTint`    | `string`                                              | `#ff3b30` | Tint color for the recording icon                                           |
+| `recordIconTint`       | `string`                                              | `#34c759` | Tint color for the idle (record) icon                                       |
+| `recordingFillColor`   | `string`                                              | `#ff3b30` | Waveform bar colour while recording                                         |
+| `idleFillColor`        | `string`                                              | `#ccc`    | Waveform bar colour when idle                                               |
+| `recordingBorderColor` | `string`                                              | `#ff3b30` | Button border colour while recording                                        |
+| `idleBorderColor`      | `string`                                              | `#34c759` | Button border colour when idle                                              |
+| `renderIcon`           | `(isRecording: boolean) => ReactNode`                 | –         | Custom icon renderer                                                        |
+| `renderWaveform`       | `(bars: number[], isRecording: boolean) => ReactNode` | –         | Custom waveform renderer                                                    |
 
-### Now what?
+**Ref methods** – `start()` and `stop()`.
 
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [docs](https://reactnative.dev/docs/getting-started).
+---
 
-# Troubleshooting
+### `PlayerWaveform`
 
-If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
+| Prop                                                  | Type                                             | Default      | Description                                                 |
+| ----------------------------------------------------- | ------------------------------------------------ | ------------ | ----------------------------------------------------------- |
+| `uri`                                                 | `string`                                         | **required** | Path to the audio file (e.g., from `RecordingWaveform`)     |
+| `bars`                                                | `number[]`                                       | optional     | Raw amplitudes (auto‑generated if not provided)             |
+| `onProgress`                                          | `(current: number, duration: number) => void`    | –            | Progress callback                                           |
+| `onFinish`                                            | `() => void`                                     | –            | Called when playback ends                                   |
+| `sent`                                                | `boolean`                                        | `true`       | `true` = outgoing bubble (green), `false` = incoming (gray) |
+| `widthPercent`                                        | `number`                                         | `80`         | Percentage of parent width the player occupies              |
+| `seekDotColor`                                        | `string`                                         | –            | Override scrubber dot colour                                |
+| `filledSeekColor`                                     | `string`                                         | –            | Override filled waveform colour                             |
+| `seekColor`                                           | `string`                                         | –            | Override background waveform colour                         |
+| `theme`                                               | `{ sent?: ThemeColors; received?: ThemeColors }` | –            | Full theme object (see below)                               |
+| `style`, `containerStyle`, `timerStyle`, `speedStyle` | `ViewStyle`                                      | –            | Style overrides                                             |
+| `timerTextStyle`, `speedTextStyle`                    | `TextStyle`                                      | –            | Text style overrides                                        |
+| `playButtonStyle`                                     | `ViewStyle`                                      | –            | Custom style for play/pause button                          |
+| `playIconStyle`                                       | `ImageStyle`                                     | –            | Custom style for the button icon                            |
+| `playIconTintColor`                                   | `string`                                         | –            | Tint colour for play icon                                   |
+| `pauseIconTintColor`                                  | `string`                                         | –            | Tint colour for pause icon                                  |
+| `renderPlayPause`                                     | `(isPlaying: boolean) => ReactNode`              | –            | Replace the button entirely                                 |
 
-# Learn More
+**Ref methods** – `play()`, `pause()`, `seek(seconds)`.
 
-To learn more about React Native, take a look at the following resources:
+#### ThemeColors object
 
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+```ts
+type ThemeColors = {
+  backgroundColor?: string; // bubble background
+  waveformBg?: string; // unfilled waveform colour
+  waveformFg?: string; // filled waveform (progress) colour
+  scrubberDot?: string; // scrubber dot colour
+  timerText?: string; // timer text colour
+  speedButtonBg?: string; // speed button background
+  speedButtonText?: string; // speed button text colour
+};
+```
+
+## Advanced Examples
+
+### Theming a received message (gray bubble)
+
+```tsx
+<PlayerWaveform
+  uri={uri}
+  bars={bars}
+  sent={false}
+  theme={{
+    received: {
+      backgroundColor: '#f0f0f0',
+      waveformFg: '#ff9500',
+      scrubberDot: '#ff9500',
+      timerText: '#555',
+    },
+  }}
+/>
+```
+
+### Custom play/pause button with icons
+
+```tsx
+<PlayerWaveform
+  uri={uri}
+  bars={bars}
+  playIconTintColor="white"
+  pauseIconTintColor="white"
+  playButtonStyle={{ backgroundColor: '#007aff', borderRadius: 30 }}
+/>
+```
+
+### Custom record icon and waveform
+
+```tsx
+<RecordingWaveform
+  onStop={handleStop}
+  renderIcon={recording => (
+    <Text style={{ fontSize: 20 }}>{recording ? '⏺' : '🎙️'}</Text>
+  )}
+  renderWaveform={(bars, recording) => (
+    <View style={{ flexDirection: 'row' }}>
+      {bars.map((h, i) => (
+        <View key={i} style={{ width: 3, height: h, backgroundColor: 'red' }} />
+      ))}
+    </View>
+  )}
+/>
+```
+
+## Running the Example Project
+
+The package includes a fully functional example app. To run it:
+
+```bash
+git clone https://github.com/iqraKhaliq/react-native-audio-waveform-kit.git
+cd react-native-audio-waveform-kit/example
+npm install
+npx react-native run-ios   # or run-android
+```
+
+## Contributing
+
+Issues and pull requests are welcome. Please follow the existing code style.
+
+## License
+
+MIT
+
+---
+
+**Built with ❤️ for the React Native community**
