@@ -1,6 +1,6 @@
 {
   "name": "react-native-audio-waveform-kit",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "WhatsApp‑style voice recording and playback waveforms for React Native (using react-native-audio-api)",
   "main": "lib/commonjs/index.js",
   "module": "lib/module/index.js",
@@ -25,13 +25,22 @@
     "playback",
     "voice-message"
   ],
-  "author": "Your Name <your.email@example.com>",
+  "author": "Iqra Khaliq <iqra.khaliq459@gmail.com>",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/iqraKhaliq/react-native-audio-waveform-kit.git"
+  },
+  "homepage": "https://github.com/iqraKhaliq/react-native-audio-waveform-kit#readme",
+  "bugs": {
+    "url": "https://github.com/iqraKhaliq/react-native-audio-waveform-kit/issues"
+  },
   "peerDependencies": {
     "react": ">=17.0.0",
     "react-native": ">=0.70.0",
     "react-native-audio-api": ">=0.12.0",
     "react-native-gesture-handler": ">=2.0.0",
+    "react-native-sound": "^0.13.0",
     "react-native-svg": ">=13.0.0"
   },
   "devDependencies": {
