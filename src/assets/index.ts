@@ -3,4 +3,5 @@ export const icons = {
     pause: require('./icons/pause.png'),
     record: require('./icons/record.png'),
     recording: require('./icons/recording.png'),
+    delete: require('./icons/delete.png'),
 }
