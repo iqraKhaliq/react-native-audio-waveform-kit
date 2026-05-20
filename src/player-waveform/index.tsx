@@ -31,16 +31,9 @@ import {
 import { icons } from './../assets';
 import styles from './styles';
 import { useWaveformBars } from './../hooks';
+import { colors, ThemeColors } from '../theme';
 
-type ThemeColors = {
-  backgroundColor?: string;
-  waveformBg?: string;
-  waveformFg?: string;
-  scrubberDot?: string;
-  timerText?: string;
-  speedButtonBg?: string;
-  speedButtonText?: string;
-};
+Sound.setCategory('Playback', true);
 
 type Props = {
   uri: string;
@@ -67,6 +60,7 @@ type Props = {
   playIconStyle?: ImageStyle;
   playIconTintColor?: string;
   pauseIconTintColor?: string;
+  minLoaderDuration?: number;
 };
 
 type PlayerRef = {
@@ -76,23 +70,23 @@ type PlayerRef = {
 };
 
 const defaultSentColors: ThemeColors = {
-  backgroundColor: '#dcf8c5',
-  waveformBg: 'rgba(0,0,0,0.2)',
-  waveformFg: '#075e54',
-  scrubberDot: '#0084ff',
-  timerText: '#075e54',
-  speedButtonBg: 'rgba(0,0,0,0.05)',
-  speedButtonText: '#000000',
+  backgroundColor: colors.lightGreen,
+  waveformBg: colors.rgba002,
+  waveformFg: colors.darkGreen,
+  scrubberDot: colors.blue,
+  timerText: colors.darkGreen,
+  speedButtonBg: colors.rgba005,
+  speedButtonText: colors.black,
 };
 
 const defaultReceivedColors: ThemeColors = {
-  backgroundColor: '#e5e5ea',
-  waveformBg: 'rgba(0,0,0,0.15)',
-  waveformFg: '#000000',
-  scrubberDot: '#0084ff',
-  timerText: '#6c6c70',
-  speedButtonBg: 'rgba(0,0,0,0.05)',
-  speedButtonText: '#000000',
+  backgroundColor: colors.lightGrey,
+  waveformBg: colors.rgba015,
+  waveformFg: colors.black,
+  scrubberDot: colors.blue,
+  timerText: colors.grey,
+  speedButtonBg: colors.rgba005,
+  speedButtonText: colors.black,
 };
 
 const PlayerWaveform = forwardRef<PlayerRef, Props>(
@@ -119,6 +113,7 @@ const PlayerWaveform = forwardRef<PlayerRef, Props>(
       playIconTintColor,
       pauseIconTintColor,
       containerStyle,
+      // minLoaderDuration = 300,
     },
     ref,
   ) => {
@@ -127,7 +122,7 @@ const PlayerWaveform = forwardRef<PlayerRef, Props>(
     const [duration, setDuration] = useState(0);
     const [currentTime, setCurrentTime] = useState(0);
     const [speed, setSpeed] = useState(1);
-    const [isLoading, setIsLoading] = useState(true);
+    const [isLoading, setIsLoading] = useState(false);
     const [waveformWidth, setWaveformWidth] = useState(0);
     const [isDragging, setIsDragging] = useState(false);
     const finishFlagRef = useRef(false);
@@ -139,17 +134,16 @@ const PlayerWaveform = forwardRef<PlayerRef, Props>(
     const isDraggingRef = useRef(false);
     const dragTargetRef = useRef(0);
     const finishLockRef = useRef(0);
+    // const loadStartTimeRef = useRef(0);
 
     const { bars: finalBars, loading: barsLoading } = useWaveformBars(
       uri,
       barsProp,
     );
-
     const visibleBars = useMemo(() => {
       if (!finalBars?.length) return new Array(VISIBLE_BARS).fill(2);
       return downsampleWithPeaks(finalBars, VISIBLE_BARS);
     }, [finalBars]);
-
     const barHeights = useMemo(() => {
       return visibleBars.map(h => {
         const val = h <= 1 ? h * HEIGHT : Math.min(HEIGHT, h);
@@ -172,19 +166,58 @@ const PlayerWaveform = forwardRef<PlayerRef, Props>(
       ? (theme?.sent ?? defaultSentColors)
       : (theme?.received ?? defaultReceivedColors);
     const bgColor =
-      stateTheme.backgroundColor ?? (sent ? '#dcf8c5' : '#e5e5ea');
+      stateTheme.backgroundColor ??
+      (sent ? colors.lightGreen : colors.lightGrey);
     const waveBg =
       seekColor ??
       stateTheme.waveformBg ??
-      (sent ? 'rgba(0,0,0,0.2)' : 'rgba(0,0,0,0.15)');
+      (sent ? colors.rgba002 : colors.rgba015);
     const waveFg =
       filledSeekColor ??
       stateTheme.waveformFg ??
-      (sent ? '#075e54' : '#000000');
-    const dotColor = seekDotColor ?? stateTheme.scrubberDot ?? '#0084ff';
-    const timeColor = stateTheme.timerText ?? (sent ? '#075e54' : '#6c6c70');
-    const speedBtnBg = stateTheme.speedButtonBg ?? 'rgba(0,0,0,0.05)';
-    const speedBtnTextColor = stateTheme.speedButtonText ?? '#000000';
+      (sent ? colors.darkGreen : colors.black);
+    const dotColor = seekDotColor ?? stateTheme.scrubberDot ?? colors.blue;
+    const timeColor =
+      stateTheme.timerText ?? (sent ? colors.darkGreen : colors.grey);
+    const speedBtnBg = stateTheme.speedButtonBg ?? colors.rgba005;
+    const speedBtnTextColor = stateTheme.speedButtonText ?? colors.black;
+
+    useEffect(() => {
+      setIsLoading(true);
+      if (soundRef.current) {
+        soundRef.current.stop();
+        soundRef.current.release();
+      }
+      const cleanPath = uri?.replace('file://', '');
+
+      const sound = new Sound(cleanPath, '', (err: Error | null) => {
+        if (err) {
+          setIsLoading(false);
+          return;
+        }
+
+        if (sound.isLoaded()) {
+          let dur = sound.getDuration();
+          if (isNaN(dur) || dur === 0) dur = 1;
+          setDuration(dur);
+          setCurrentTime(0);
+          sound.stop();
+          stopTimer();
+          sound.setCurrentTime(0);
+          sound.setSpeed(speed);
+        }
+
+        soundRef.current = sound;
+        sound.stop();
+        setIsLoading(false);
+      });
+      return () => {
+        stopTimer();
+        soundRef.current?.stop();
+        soundRef.current?.release();
+        soundRef.current = null;
+      };
+    }, [uri]);
 
     const stopTimer = () => {
       if (intervalRef.current) {
@@ -233,55 +266,69 @@ const PlayerWaveform = forwardRef<PlayerRef, Props>(
       }, 100);
     };
 
-    useEffect(() => {
-      setIsLoading(true);
-      stopTimer();
-      if (soundRef.current) {
-        soundRef.current.stop();
-        soundRef.current.release();
-      }
-      const cleanPath = uri.replace('file://', '');
-      const sound = new Sound(cleanPath, '', (err: Error | null) => {
-        if (err) {
-          console.error('Load error', err);
-          setIsLoading(false);
-          return;
-        }
-        let dur = sound.getDuration();
-        if (isNaN(dur) || dur === 0) dur = 1;
-        setDuration(dur);
-        setCurrentTime(0);
-        sound.setSpeed(speed);
-        soundRef.current = sound;
-        setIsLoading(false);
-      });
-      return () => {
-        stopTimer();
-        soundRef.current?.stop();
-        soundRef.current?.release();
-        soundRef.current = null;
-      };
-    }, [uri]);
+    // const loadSound = async (): Promise<boolean> => {
+    //   if (soundRef.current) return true;
+    //   if (isLoading) return false;
+    //   setIsLoading(true);
+    //   loadStartTimeRef.current = Date.now();
+    //   return new Promise(resolve => {
+    //     const cleanPath = uri.replace('file://', '');
+    //     const sound = new Sound(cleanPath, '', err => {
+    //       const elapsed = Date.now() - loadStartTimeRef.current;
+    //       const remaining = Math.max(0, minLoaderDuration - elapsed);
+    //       const finish = () => {
+    //         if (err) {
+    //           setIsLoading(false);
+    //           resolve(false);
+    //           return;
+    //         }
+    //         const dur = sound.getDuration();
+    //         setDuration(isNaN(dur) || dur === 0 ? 1 : dur);
+    //         sound.setSpeed(speed);
+    //         soundRef.current = sound;
+    //         setIsLoading(false);
+    //         resolve(true);
+    //       };
+    //       if (remaining > 0) setTimeout(finish, remaining);
+    //       else finish();
+    //     });
+    //   });
+    // };
 
     const play = async () => {
-      if (Date.now() < finishLockRef.current) return;
-      if (isSpeedChangingRef.current) return;
-      if (!soundRef.current) return;
-      const isAtEnd =
-        Math.abs(currentTime - duration) < 0.1 ||
-        currentTime >= duration - 0.05;
-      if (isAtEnd) {
-        finishLockRef.current = 0;
-        soundRef.current.setCurrentTime(0);
-        setCurrentTime(0);
-        startTimeRef.current = Date.now();
-      } else {
-        startTimeRef.current = Date.now() - currentTime * 1000;
+      try {
+        if (isSpeedChangingRef.current) return;
+        if (isLoading) return;
+        // const loaded = await loadSound();
+
+        // if (!loaded) return;
+
+        // // Small delay to ensure native sound is ready (fixes first‑play issue)
+        // await new Promise(resolve => setTimeout(resolve, 200));
+
+        if (Date.now() < finishLockRef.current) return;
+        const isAtEnd =
+          Math.abs(currentTime - duration) < 0.1 ||
+          currentTime >= duration - 0.05;
+
+        if (isAtEnd) {
+          finishLockRef.current = 0;
+          soundRef.current?.setCurrentTime(0);
+          setCurrentTime(0);
+          startTimeRef.current = Date.now();
+        } else {
+          // soundRef.current?.setCurrentTime(currentTime);
+          startTimeRef.current = Date.now() - currentTime * 1000;
+        }
+
+        soundRef.current?.play(() => {});
+
+        setIsPlaying(true);
+        isPlayingRef.current = true;
+        startTimer();
+      } catch (error) {
+        //
       }
-      soundRef.current.play(() => {});
-      setIsPlaying(true);
-      isPlayingRef.current = true;
-      startTimer();
     };
 
     const pause = async () => {
@@ -294,7 +341,9 @@ const PlayerWaveform = forwardRef<PlayerRef, Props>(
       }
     };
 
-    const togglePlayPause = () => (isPlaying ? pause() : play());
+    const togglePlayPause = () => {
+      return isPlaying ? pause() : play();
+    };
 
     const seek = async (seconds: number) => {
       if (!soundRef.current) return;
@@ -327,14 +376,26 @@ const PlayerWaveform = forwardRef<PlayerRef, Props>(
       setTimeout(() => (isSpeedChangingRef.current = false), 150);
     };
 
+    useEffect(() => {
+      return () => {
+        stopTimer();
+        soundRef.current?.stop();
+        soundRef.current?.release();
+        soundRef.current = null;
+      };
+    }, []);
+
     const gesture = Gesture.Pan()
+      .runOnJS(true)
       .onStart(() => {
+        if (isLoading || !soundRef.current) return;
+
         setIsDragging(true);
         isDraggingRef.current = true;
         stopTimer();
       })
       .onUpdate(e => {
-        if (waveformWidth === 0) return;
+        if (isLoading || !soundRef.current || waveformWidth === 0) return;
         let pos = e.x / waveformWidth;
         pos = Math.min(1, Math.max(0, pos));
         const newTime = pos * duration;
@@ -342,6 +403,7 @@ const PlayerWaveform = forwardRef<PlayerRef, Props>(
         dragTargetRef.current = newTime;
       })
       .onEnd(async () => {
+        if (isLoading || !soundRef.current) return;
         if (dragTargetRef.current !== undefined && soundRef.current) {
           await seek(dragTargetRef.current);
         }
@@ -357,10 +419,12 @@ const PlayerWaveform = forwardRef<PlayerRef, Props>(
     const renderDefaultPlayPause = () => {
       const icon = isPlaying ? icons.pause : icons.play;
       const tint = isPlaying ? pauseIconTintColor : playIconTintColor;
+      const loaderVisible = isLoading || barsLoading;
       return (
         <Pressable
           onPress={togglePlayPause}
           style={[styles.playBtn, playButtonStyle]}
+          disabled={loaderVisible}
         >
           <Image
             source={icon}
@@ -394,7 +458,7 @@ const PlayerWaveform = forwardRef<PlayerRef, Props>(
           <View style={styles.row}>
             {showSpinner ? (
               <View style={[styles.playBtn, playButtonStyle]}>
-                <ActivityIndicator size="small" color="#000" />
+                <ActivityIndicator size={'small'} color={colors.black} />
               </View>
             ) : renderPlayPause ? (
               renderPlayPause(isPlaying)
