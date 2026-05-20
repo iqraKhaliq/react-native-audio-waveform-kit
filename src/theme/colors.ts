@@ -18,6 +18,8 @@ export type ThemeColors = {
     lightGrey?: string;
     rgba002?: string;
     rgba005?: string;
+    rgba006?: string;
+    rgba007?: string;
     rgba015?: string;
 };
 
@@ -35,5 +37,7 @@ export const colors = {
 
     rgba002: 'rgba(0,0,0,0.2)',
     rgba005: 'rgba(0,0,0,0.05)',
+    rgba006: 'rgba(0,0,0,0.6)',
+    rgba007: 'rgba(0,0,0,0.7)',
     rgba015: 'rgba(0,0,0,0.15)',
 };
