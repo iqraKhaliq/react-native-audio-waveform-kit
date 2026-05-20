@@ -1,6 +1,6 @@
 {
   "name": "react-native-audio-waveform-kit",
-  "version": "1.0.1",
+  "version": "1.0.2-beta.0",
   "description": "WhatsApp‑style voice recording and playback waveforms for React Native (using react-native-audio-api)",
   "main": "lib/commonjs/index.js",
   "module": "lib/module/index.js",
