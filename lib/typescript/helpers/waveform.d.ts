@@ -2,4 +2,5 @@ export declare const downsampleWithPeaks: (data: number[], targetCount: number) 
 export declare const formatTime: (secs: number) => string;
 export declare const amplitudeToBarHeight: (amp: number) => number;
 export declare const generateBars: (amps: number[]) => any[];
+export declare const formatRecordingTime: (seconds: number) => string;
 //# sourceMappingURL=waveform.d.ts.map

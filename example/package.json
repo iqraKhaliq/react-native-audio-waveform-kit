@@ -9,19 +9,21 @@
     "start": "react-native start",
     "test": "jest",
     "pods": "cd ios && pod install && cd ..",
-    "install:waveform": "npm install ../react-native-audio-waveform-kit-1.0.0.tgz",
-    "setup:waveform": "npm install ../react-native-audio-waveform-kit-1.0.0.tgz && cd ios && pod install && cd .."
+    "install:waveform": "npm install ../react-native-audio-waveform-kit-1.0.1.tgz",
+    "setup:waveform": "npm install ../react-native-audio-waveform-kit-1.0.1.tgz && cd ios && pod install && cd .."
   },
   "dependencies": {
     "@react-native/new-app-screen": "0.85.2",
     "react": "19.2.3",
     "react-native": "0.85.2",
     "react-native-audio-api": "^0.12.1",
-    "react-native-audio-waveform-kit": "file:../react-native-audio-waveform-kit-1.0.0.tgz",
+    "react-native-audio-waveform-kit": "file:../react-native-audio-waveform-kit-1.0.1.tgz",
     "react-native-gesture-handler": "^2.31.1",
+    "react-native-reanimated": "^4.3.1",
     "react-native-safe-area-context": "^5.5.2",
     "react-native-sound": "^0.13.0",
-    "react-native-svg": "^15.15.4"
+    "react-native-svg": "^15.15.4",
+    "react-native-worklets": "^0.8.3"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

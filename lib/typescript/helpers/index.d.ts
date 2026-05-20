@@ -1,3 +1,4 @@
-import { downsampleWithPeaks, formatTime, amplitudeToBarHeight, generateBars } from "./waveform";
-export { downsampleWithPeaks, formatTime, amplitudeToBarHeight, generateBars };
+import { downsampleWithPeaks, formatTime, amplitudeToBarHeight, generateBars, formatRecordingTime } from './waveform';
+import RecordingService from './recording';
+export { downsampleWithPeaks, formatTime, amplitudeToBarHeight, generateBars, formatRecordingTime, RecordingService, };
 //# sourceMappingURL=index.d.ts.map
