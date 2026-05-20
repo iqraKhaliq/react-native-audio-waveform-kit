@@ -7,13 +7,23 @@ WhatsApp‑style voice recording and playback waveforms for React Native.
 
 ## Features
 
-- 🎤 **Hold‑to‑record** with live waveform visualisation
-- ▶️ **Playback** with scrubbing, speed control (1x/1.5x/2x)
-- 🎨 **Themable** – sent/received bubble colours, progress fill, scrubber dot
-- 📊 **Waveform** – constant 40 bars with peak‑preserving downsampling
+- 🎤 **Recording**
+  - Tap to start/stop recording.
+  - **Slide up** while recording to lock (recording continues after finger release).
+  - **Long press** (600ms) to start recording without movement.
+  - **Slide left** while recording to cancel/delete.
+  - **Delete button** (trash icon) appears while recording – tap to cancel.
+  - Live waveform visualisation.
+  - Recording timer (mm:ss).
+- ▶️ **Playback**
+  - Play/pause, scrubbing, speed control (1x/1.5x/2x).
+  - Loader during initial load (no auto‑play).
+  - Auto‑replay prevention (stops accidental replay of short audio).
+- 🎨 **Themable** – separate colours for sent (outgoing) and received (incoming) messages: bubble background, waveform fill, scrubber dot, timer text, speed button.
+- 📊 **Waveform** – constant 40 bars with peak‑preserving downsampling (auto‑generated if bars not provided).
 - 🧹 **No auto‑replay** – prevents accidental replay of short audio
-- 🖼️ **Customisable icons** – use your own play/pause/record buttons
-- 🔧 **Built with TypeScript** – type definitions included
+- 🖼️ **Customisable icons** – use your own play/pause/record/delete icons.
+- 🔧 **Built with TypeScript** – full type definitions.
 
 ## Installation
 
@@ -24,7 +34,7 @@ npm install react-native-audio-waveform-kit
 **Peer dependencies** (must be installed in your app):
 
 ```bash
-npm install react-native-audio-api react-native-sound react-native-gesture-handler react-native-svg
+npm install react-native-audio-api react-native-sound react-native-gesture-handler react-native-svg react-native-reanimated react-native-worklets
 ```
 
 ### iOS (extra step)
@@ -39,6 +49,17 @@ Add the following line to `android/app/src/main/AndroidManifest.xml` inside the 
 
 ```xml
 <uses-permission android:name="android.permission.RECORD_AUDIO" />
+<!-- Foreground service and microphone permissions for background usage -->
+<uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+<uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE"/>
+
+<!-- Optional: for Bluetooth microphone support -->
+<uses-permission android:name="android.permission.BLUETOOTH" />
+<uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
+<uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+
+<!-- Paste this inside <application> tag -->
+<service android:stopWithTask="true" android:name="com.swmansion.audioapi.system.CentralizedForegroundService" android:foregroundServiceType="microphone" />
 ```
 
 ### iOS microphone usage description
@@ -48,6 +69,15 @@ Add this to `ios/YourApp/Info.plist` inside the `<dict>` tag:
 ```xml
 <key>NSMicrophoneUsageDescription</key>
 <string>We need microphone access to record voice messages</string>
+
+<key>UIBackgroundModes</key>
+	<array>
+		<string>audio</string>
+    <!-- Optional: for Bluetooth microphone support -->
+    <string>bluetooth-peripheral</string>
+		<string>external-accessory</string>
+		<string>bluetooth-central</string>
+	</array>
 ```
 
 ## Quick Start Example
@@ -88,23 +118,36 @@ const styles = StyleSheet.create({
 
 ### `RecordingWaveform`
 
-| Prop                   | Type                                                  | Default   | Description                                                                 |
-| ---------------------- | ----------------------------------------------------- | --------- | --------------------------------------------------------------------------- |
-| `onStop`               | `(output: any) => void`                               | –         | Called when recording stops. Returns `{ uri, duration, size, amplitudes }`. |
-| `style`                | `ViewStyle`                                           | –         | Style for the outer container                                               |
-| `waveformStyle`        | `ViewStyle`                                           | –         | Style for the waveform SVG wrapper                                          |
-| `buttonStyle`          | `ViewStyle`                                           | –         | Style for the record button                                                 |
-| `iconStyle`            | `ImageStyle`                                          | –         | Style for the icon image                                                    |
-| `recordingIconTint`    | `string`                                              | `#ff3b30` | Tint color for the recording icon                                           |
-| `recordIconTint`       | `string`                                              | `#34c759` | Tint color for the idle (record) icon                                       |
-| `recordingFillColor`   | `string`                                              | `#ff3b30` | Waveform bar colour while recording                                         |
-| `idleFillColor`        | `string`                                              | `#ccc`    | Waveform bar colour when idle                                               |
-| `recordingBorderColor` | `string`                                              | `#ff3b30` | Button border colour while recording                                        |
-| `idleBorderColor`      | `string`                                              | `#34c759` | Button border colour when idle                                              |
-| `renderIcon`           | `(isRecording: boolean) => ReactNode`                 | –         | Custom icon renderer                                                        |
-| `renderWaveform`       | `(bars: number[], isRecording: boolean) => ReactNode` | –         | Custom waveform renderer                                                    |
+| Prop                   | Type                                                  | Default   | Description                                                                                                               |
+| ---------------------- | ----------------------------------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `onStop`               | `(output: any) => void`                               | –         | Called when recording stops normally (tap stop or release without cancel). Returns `{ uri, duration, size, amplitudes }`. |
+| `onCancel`             | `() => void`                                          | –         | Called when recording is cancelled (slide left or tap delete button).                                                     |
+| `style`                | `ViewStyle`                                           | –         | Style for the outer container                                                                                             |
+| `waveformStyle`        | `ViewStyle`                                           | –         | Style for the waveform SVG wrapper                                                                                        |
+| `buttonStyle`          | `ViewStyle`                                           | –         | Style for the record button                                                                                               |
+| `iconStyle`            | `ImageStyle`                                          | –         | Style for the icon image                                                                                                  |
+| `recordingIconTint`    | `string`                                              | `#ff3b30` | Tint color for the recording icon (when recording)                                                                        |
+| `recordIconTint`       | `string`                                              | `#34c759` | Tint color for the idle (record) icon                                                                                     |
+| `recordingFillColor`   | `string`                                              | `#ff3b30` | Waveform bar colour while recording                                                                                       |
+| `idleFillColor`        | `string`                                              | `#ccc`    | Waveform bar colour when idle                                                                                             |
+| `recordingBorderColor` | `string`                                              | `#ff3b30` | Button border colour while recording                                                                                      |
+| `idleBorderColor`      | `string`                                              | `#34c759` | Button border colour when idle                                                                                            |
+| `renderIcon`           | `(isRecording: boolean) => ReactNode`                 | –         | Custom icon renderer                                                                                                      |
+| `renderWaveform`       | `(bars: number[], isRecording: boolean) => ReactNode` | –         | Custom waveform renderer                                                                                                  |
+| `showTimer`            | `boolean`                                             | `true`    | Whether to show the recording timer                                                                                       |
+| `timerStyle`           | `ViewStyle`                                           | –         | Style for the timer container                                                                                             |
+| `timerTextStyle`       | `TextStyle`                                           | –         | Style for the timer text                                                                                                  |
+| `renderTimer`          | `(elapsedSeconds: number) => ReactNode`               | –         | Custom timer renderer                                                                                                     |
+| `cancelThreshold`      | `number`                                              | `40`      | Horizontal swipe distance (px) to cancel while recording                                                                  |
+| `slideUpThreshold`     | `number`                                              | `20`      | Vertical swipe distance (px) to start recording (slide up)                                                                |
 
-**Ref methods** – `start()` and `stop()`.
+**Ref methods** – `start()`, `stop()`, `cancel()`.
+
+**Gesture behaviour:**
+
+- **Tap** – start recording (if idle), stop and send (if recording).
+- **Slide up** while idle → start recording immediately.
+- **Long/Hold press**
 
 ---
 
@@ -198,14 +241,33 @@ type ThemeColors = {
 
 ## Running the Example Project
 
-The package includes a fully functional example app. To run it:
+The repository includes an example app that is pre‑configured to use a local `.tgz` file. If you want to run the example against the **latest published npm package** (instead of building from source), follow these steps:
 
 ```bash
+# Clone the repository
 git clone https://github.com/iqraKhaliq/react-native-audio-waveform-kit.git
 cd react-native-audio-waveform-kit/example
+
+# Remove the local tarball dependency from package.json
+# (Delete the line: "react-native-audio-waveform-kit": "../react-native-audio-waveform-kit-1.0.0.tgz")
+
+# Install dependencies and the latest npm package
 npm install
+npm install react-native-audio-waveform-kit@latest
+
+# Install peer dependencies (if not already present)
+npm install react-native-audio-api react-native-sound react-native-gesture-handler react-native-reanimated react-native-worklets react-native-svg
+
+# iOS only: install pods
+cd ios && pod install && cd ..
+
+# Run the app
 npx react-native run-ios   # or run-android
 ```
+
+## Changelog
+
+See [CHANGELOG.md](./CHANGELOG.md) for release history.
 
 ## Contributing
 

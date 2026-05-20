@@ -1,14 +1,6 @@
 import React, { ReactNode } from 'react';
 import { ImageStyle, TextStyle, ViewStyle } from 'react-native';
-type ThemeColors = {
-    backgroundColor?: string;
-    waveformBg?: string;
-    waveformFg?: string;
-    scrubberDot?: string;
-    timerText?: string;
-    speedButtonBg?: string;
-    speedButtonText?: string;
-};
+import { ThemeColors } from '../theme';
 type Props = {
     uri: string;
     bars?: number[];
@@ -34,6 +26,7 @@ type Props = {
     playIconStyle?: ImageStyle;
     playIconTintColor?: string;
     pauseIconTintColor?: string;
+    minLoaderDuration?: number;
 };
 type PlayerRef = {
     play: () => void;

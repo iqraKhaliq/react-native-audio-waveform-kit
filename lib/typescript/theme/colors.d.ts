@@ -1,0 +1,42 @@
+export type ThemeColors = {
+    backgroundColor?: string;
+    waveformBg?: string;
+    waveformFg?: string;
+    scrubberDot?: string;
+    timerText?: string;
+    speedButtonBg?: string;
+    speedButtonText?: string;
+    red?: string;
+    green?: string;
+    gray?: string;
+    blue?: string;
+    black?: string;
+    white?: string;
+    grey?: string;
+    darkGreen?: string;
+    lightGreen?: string;
+    lightGrey?: string;
+    rgba002?: string;
+    rgba005?: string;
+    rgba006?: string;
+    rgba007?: string;
+    rgba015?: string;
+};
+export declare const colors: {
+    red: string;
+    green: string;
+    gray: string;
+    blue: string;
+    black: string;
+    white: string;
+    grey: string;
+    darkGreen: string;
+    lightGreen: string;
+    lightGrey: string;
+    rgba002: string;
+    rgba005: string;
+    rgba006: string;
+    rgba007: string;
+    rgba015: string;
+};
+//# sourceMappingURL=colors.d.ts.map

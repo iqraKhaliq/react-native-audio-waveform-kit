@@ -39,7 +39,17 @@ const App = () => {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <View style={styles.container}>
-        <RecordingWaveform onStop={handleStop} />
+        <RecordingWaveform
+          // enableSlideToLock={true}
+          // lockThreshold={60}
+          onStop={handleStop}
+          // onLock={() => console.log('Locked')}
+          style={{
+            marginTop: 20,
+            // marginBottom: 50
+          }}
+        />
+        {/* <RecordingWaveform onStop={handleStop} /> */}
         {messages?.map((msg, index) => (
           <PlayerWaveform
             key={msg.id}

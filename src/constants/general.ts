@@ -1,4 +1,3 @@
-
 export const HEIGHT = 40;
 export const BAR_WIDTH_FIXED = 3;
 export const GAP_FIXED = 2;

@@ -6,16 +6,36 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { Image, Pressable, StyleProp, View, ViewStyle } from 'react-native';
-import { AudioManager, AudioRecorder } from 'react-native-audio-api';
+import {
+  View,
+  Text,
+  Pressable,
+  Image,
+  StyleProp,
+  ViewStyle,
+  TextStyle,
+} from 'react-native';
+import {
+  Gesture,
+  GestureDetector,
+  GestureHandlerRootView,
+} from 'react-native-gesture-handler';
+import { scheduleOnRN } from 'react-native-worklets';
+import { useSharedValue } from 'react-native-reanimated';
 import Svg, { Rect } from 'react-native-svg';
 import { BAR_WIDTH, GAP, HEIGHT, MAX_BARS } from '../constants';
-import { amplitudeToBarHeight, generateBars } from '../helpers';
+import {
+  amplitudeToBarHeight,
+  formatRecordingTime,
+  RecordingService,
+} from '../helpers';
 import { icons } from './../assets';
 import styles from './styles';
+import { colors } from '../theme';
 
 type Props = {
   onStop?: (output: any) => void;
+  onCancel?: () => void;
   style?: StyleProp<ViewStyle>;
   waveformStyle?: StyleProp<ViewStyle>;
   buttonStyle?: StyleProp<ViewStyle>;
@@ -28,119 +48,221 @@ type Props = {
   idleBorderColor?: string;
   renderIcon?: (isRecording: boolean) => ReactNode;
   renderWaveform?: (bars: number[], isRecording: boolean) => ReactNode;
+  showTimer?: boolean;
+  timerStyle?: StyleProp<ViewStyle>;
+  timerTextStyle?: StyleProp<TextStyle>;
+  renderTimer?: (elapsedSeconds: number) => ReactNode;
+  cancelThreshold?: number;
+  slideUpThreshold?: number;
 };
 
-const RecordingWaveform = forwardRef<any, Props>(
+export type RecordingWaveformRef = {
+  start: () => Promise<void>;
+  stop: () => Promise<void>;
+  cancel: () => Promise<void>;
+};
+
+const RecordingWaveform = forwardRef<RecordingWaveformRef, Props>(
   (
     {
       onStop,
+      onCancel,
       style,
       waveformStyle,
       buttonStyle,
       iconStyle,
-      recordingIconTint = '#ff3b30',
-      recordIconTint = '#34c759',
-      recordingFillColor = '#ff3b30',
-      idleFillColor = '#ccc',
-      recordingBorderColor = '#ff3b30',
-      idleBorderColor = '#34c759',
+      recordingIconTint = colors.red,
+      recordIconTint = colors.green,
+      recordingFillColor = colors.red,
+      idleFillColor = colors.gray,
+      recordingBorderColor = colors.red,
+      idleBorderColor = colors.green,
       renderIcon,
       renderWaveform,
+      showTimer = true,
+      timerStyle,
+      timerTextStyle,
+      renderTimer,
+      cancelThreshold = 40,
+      slideUpThreshold = 20,
     },
     ref,
   ) => {
-    const recorderRef = useRef<any>(null);
-    const amplitudesRef = useRef<number[]>([]);
-    const isRecordingRef = useRef(false);
+    const service = RecordingService.getInstance();
     const [isRecording, setIsRecording] = useState(false);
     const [bars, setBars] = useState<number[]>([]);
+    const [elapsedSeconds, setElapsedSeconds] = useState(0);
+    const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
+    const cancelTriggeredRef = useSharedValue(false);
+    const startedByPanRef = useSharedValue(false);
+    const panActiveRef = useSharedValue(false);
+    const panActiveDragRef = useSharedValue(false);
+    const onStopRef = useRef(onStop);
+    const onCancelRef = useRef(onCancel);
 
     useEffect(() => {
-      if (!isRecording) return;
-      const interval = setInterval(() => {
-        const raw = amplitudesRef.current.slice(-MAX_BARS);
-        setBars(raw.map(amplitudeToBarHeight));
-      }, 80);
-      return () => clearInterval(interval);
-    }, [isRecording]);
+      onStopRef.current = onStop;
+      onCancelRef.current = onCancel;
+    }, [onStop, onCancel]);
 
     useEffect(() => {
+      service.setCallbacks({
+        onAmplitude: () => {
+          const amps = service.getAmplitudes();
+          const raw = amps.slice(-MAX_BARS);
+          setBars(raw.map(amplitudeToBarHeight));
+        },
+        onStop: output => {
+          setIsRecording(false);
+          if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+          onStopRef.current?.(output);
+          setBars([]);
+        },
+        onCancel: () => {
+          setIsRecording(false);
+          if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+          onCancelRef.current?.();
+          setBars([]);
+        },
+      });
+    }, []);
+
+    // Subscribe to amplitude updates
+    useEffect(() => {
+      service.setCallbacks({
+        onAmplitude: () => {
+          const amps = service.getAmplitudes();
+          const raw = amps.slice(-MAX_BARS);
+          setBars(raw.map(amplitudeToBarHeight));
+        },
+        onStop: output => {
+          setIsRecording(false);
+          if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+          onStop?.(output);
+          setBars([]);
+        },
+        onCancel: () => {
+          setIsRecording(false);
+          if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+          onCancel?.();
+          setBars([]);
+        },
+      });
       return () => {
-        if (recorderRef.current && isRecordingRef.current) {
-          try {
-            recorderRef.current.stop();
-          } catch (_) {}
-        }
+        if (service.isActive()) service.cancel();
       };
     }, []);
 
-    const createRecorder = () => {
-      const recorder = new AudioRecorder();
-      recorder.enableFileOutput();
-      recorder.onAudioReady?.(
-        { sampleRate: 16000, bufferLength: 1024, channelCount: 1 },
-        (event: any) => {
-          if (!isRecordingRef.current) return;
-          const data = event?.buffer?.getChannelData?.(0);
-          if (!data) return;
-          let sum = 0;
-          for (let i = 0; i < data.length; i++) sum += data[i] * data[i];
-          const rms = Math.sqrt(sum / data.length);
-          amplitudesRef.current.push(Math.min(1, rms * 12));
-        },
-      );
-      return recorder;
-    };
-
-    const start = async () => {
-      if (isRecordingRef.current) return;
-      const permission = await AudioManager.requestRecordingPermissions();
-      if (permission !== 'Granted') return;
-      await AudioManager.setAudioSessionOptions({
-        iosCategory: 'record',
-        iosMode: 'default',
-        iosOptions: [],
-      });
-      await AudioManager.setAudioSessionActivity(true);
-      amplitudesRef.current = [];
-      setBars([]);
-      isRecordingRef.current = true;
-      const recorder = createRecorder();
-      recorderRef.current = recorder;
-      const startResult = recorder.start();
-      if (startResult?.status === 'error') {
-        isRecordingRef.current = false;
-        recorderRef.current = null;
-        await AudioManager.setAudioSessionActivity(false);
+    // Timer for elapsed seconds
+    useEffect(() => {
+      if (!isRecording) {
+        if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
         return;
       }
-      setIsRecording(true);
-    };
-
-    const stop = async () => {
-      if (!recorderRef.current) return;
-      isRecordingRef.current = false;
-      setIsRecording(false);
-      const stopResult = recorderRef.current.stop();
-      await AudioManager.setAudioSessionActivity(false);
-      const output = {
-        uri: stopResult?.paths?.[0],
-        duration: stopResult?.duration,
-        size: stopResult?.size,
-        amplitudes: generateBars(amplitudesRef.current),
+      setElapsedSeconds(0);
+      const startTime = Date.now();
+      timerIntervalRef.current = setInterval(() => {
+        const elapsed = Math.floor((Date.now() - startTime) / 1000);
+        setElapsedSeconds(elapsed);
+      }, 1000);
+      return () => {
+        if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
       };
-      recorderRef.current = null;
-      setBars([]);
-      onStop?.(output);
+    }, [isRecording]);
+
+    const startRecording = async () => {
+      if (service.isActive()) return;
+      const success = await service.start();
+      if (success) {
+        setIsRecording(true);
+        cancelTriggeredRef.value = false;
+      }
     };
 
-    useImperativeHandle(ref, () => ({ start, stop }));
+    const stopRecording = async () => {
+      await service.stop();
+      setIsRecording(false);
+    };
+
+    const cancelRecording = async () => {
+      if (cancelTriggeredRef.value) return;
+      cancelTriggeredRef.value = true;
+      await service.cancel();
+      setIsRecording(false);
+      setTimeout(() => {
+        cancelTriggeredRef.value = false;
+      }, 200);
+    };
+
+    const tap = Gesture.Tap().onEnd(() => {
+      if (isRecording && !cancelTriggeredRef.value) {
+        scheduleOnRN(stopRecording);
+      } else if (!isRecording) {
+        scheduleOnRN(startRecording);
+      }
+    });
+
+    const pan = Gesture.Pan()
+      .onStart(() => {
+        if (!isRecording) {
+          panActiveRef.value = true;
+          panActiveDragRef.value = false;
+        }
+      })
+      .onUpdate(event => {
+        const dy = event.translationY;
+        const dx = event.translationX;
+        if (
+          !isRecording &&
+          !startedByPanRef.value &&
+          dy < -slideUpThreshold &&
+          dx === 0
+        ) {
+          startedByPanRef.value = true;
+          scheduleOnRN(startRecording);
+        }
+
+        if (
+          isRecording &&
+          !cancelTriggeredRef.value &&
+          !panActiveDragRef.value &&
+          dx <= -cancelThreshold &&
+          Math.abs(dy) <= 25
+        ) {
+          scheduleOnRN(cancelRecording);
+        }
+      })
+      .onEnd(() => {
+        panActiveRef.value = false;
+        startedByPanRef.value = false;
+        panActiveDragRef.value = true;
+      });
+
+    const longPress = Gesture.LongPress()
+      .minDuration(600)
+      .onStart(() => {
+        if (!isRecording && !startedByPanRef.value) {
+          scheduleOnRN(startRecording);
+        }
+      })
+      .onEnd(() => {
+        scheduleOnRN(stopRecording);
+      });
+
+    const slideAndHold = Gesture.Simultaneous(pan, longPress);
+    const gesture = Gesture.Race(tap, slideAndHold);
+
+    useImperativeHandle(ref, () => ({
+      start: startRecording,
+      stop: stopRecording,
+      cancel: cancelRecording,
+    }));
 
     const totalWidth = MAX_BARS * (BAR_WIDTH + GAP);
 
     const defaultWaveform = () => (
       <Svg height={HEIGHT} width={totalWidth - 32}>
-        {bars?.map((h, i) => (
+        {bars.map((h, i) => (
           <Rect
             key={i}
             x={i * (BAR_WIDTH + GAP)}
@@ -153,39 +275,68 @@ const RecordingWaveform = forwardRef<any, Props>(
       </Svg>
     );
 
-    const defaultIcon = () => (
-      <Image
-        source={isRecording ? icons.recording : icons.record}
-        style={[
-          styles.iconStyle,
-          iconStyle,
-          { tintColor: isRecording ? recordingIconTint : recordIconTint },
-        ]}
-      />
+    const defaultIcon = () => {
+      const iconSource = isRecording ? icons.recording : icons.record;
+      const tint = isRecording ? recordingIconTint : recordIconTint;
+      return (
+        <Image
+          source={iconSource}
+          style={[styles.iconStyle, iconStyle, { tintColor: tint }]}
+        />
+      );
+    };
+
+    const defaultTimer = () => (
+      <Text style={[styles.timerText, timerTextStyle]}>
+        {formatRecordingTime(elapsedSeconds)}
+      </Text>
     );
 
+    const buttonContent = renderIcon ? renderIcon(isRecording) : defaultIcon();
+
+    const timerDisplay = renderTimer
+      ? renderTimer(elapsedSeconds)
+      : defaultTimer();
+
     return (
-      <View style={[styles.container, style]}>
+      <GestureHandlerRootView style={[styles.container, style]}>
         <View style={[styles.waveWrap, waveformStyle]}>
           {renderWaveform
             ? renderWaveform(bars, isRecording)
             : defaultWaveform()}
+          {isRecording && showTimer && (
+            <View style={styles.timerRow}>
+              <Pressable
+                onPress={cancelRecording}
+                hitSlop={{ left: 20, right: 20, top: 20, bottom: 20 }}
+              >
+                <Image source={icons.delete} style={styles.deleteIcon} />
+              </Pressable>
+              <View style={[styles.timerContainer, timerStyle]}>
+                {timerDisplay}
+              </View>
+            </View>
+          )}
         </View>
-        <Pressable
-          onPressIn={start}
-          onPressOut={stop}
-          style={[
-            styles.btn,
-            {
-              borderWidth: 2,
-              borderColor: isRecording ? recordingBorderColor : idleBorderColor,
-            },
-            buttonStyle,
-          ]}
-        >
-          {renderIcon ? renderIcon(isRecording) : defaultIcon()}
-        </Pressable>
-      </View>
+        <View style={styles.rightSection}>
+          <GestureDetector gesture={gesture}>
+            <View
+              style={[
+                styles.btn,
+                {
+                  borderWidth: 2,
+                  borderColor: isRecording
+                    ? recordingBorderColor
+                    : idleBorderColor,
+                },
+                buttonStyle,
+              ]}
+            >
+              {buttonContent}
+            </View>
+          </GestureDetector>
+        </View>
+      </GestureHandlerRootView>
     );
   },
 );
